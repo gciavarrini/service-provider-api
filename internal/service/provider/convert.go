@@ -6,7 +6,6 @@ import (
 	providerserver "github.com/dcm-project/service-provider-manager/internal/api/server/provider"
 	"github.com/dcm-project/service-provider-manager/internal/service"
 	"github.com/dcm-project/service-provider-manager/internal/store/model"
-	"gorm.io/datatypes"
 )
 
 // ModelToProvider converts a database model to an API response type.
@@ -22,15 +21,18 @@ func ModelToProvider(m *model.Provider) *providerserver.Provider {
 		CreateTime:    service.PtrTime(m.CreateTime),
 		UpdateTime:    service.PtrTime(m.UpdateTime),
 	}
-	if len(m.MetadataJSON) > 0 {
-		var meta providerserver.ProviderMetadata
-		if err := json.Unmarshal(m.MetadataJSON, &meta); err == nil {
-			p.Metadata = &meta
+	if m.Metadata != nil {
+		b, err := json.Marshal(m.Metadata)
+		if err == nil {
+			var meta providerserver.ProviderMetadata
+			if err := json.Unmarshal(b, &meta); err == nil {
+				p.Metadata = &meta
+			}
 		}
 	}
-	if len(m.OperationsJSON) > 0 {
+	if opBytes, err := json.Marshal(m.Operations); err == nil && string(opBytes) != "null" {
 		var ops []string
-		if err := json.Unmarshal(m.OperationsJSON, &ops); err == nil {
+		if err := json.Unmarshal(opBytes, &ops); err == nil {
 			p.Operations = &ops
 		}
 	}
@@ -55,14 +57,12 @@ func ProviderToModel(req *providerserver.Provider, id string) model.Provider {
 		DisplayName:   req.DisplayName,
 	}
 	if req.Metadata != nil {
-		if b, err := json.Marshal(req.Metadata); err == nil {
-			m.MetadataJSON = datatypes.JSON(b)
+		if metaMap, err := providerMetadataToMap(req.Metadata); err == nil {
+			m.Metadata = metaMap
 		}
 	}
 	if req.Operations != nil {
-		if b, err := json.Marshal(*req.Operations); err == nil {
-			m.OperationsJSON = datatypes.JSON(b)
-		}
+		m.Operations = *req.Operations
 	}
 	return m
 }
@@ -73,16 +73,26 @@ func applyProviderRequestToModel(dest *model.Provider, req *providerserver.Provi
 	dest.SchemaVersion = req.SchemaVersion
 	dest.Endpoint = req.Endpoint
 	dest.DisplayName = req.DisplayName
-	dest.MetadataJSON = nil
+	dest.Metadata = nil
 	if req.Metadata != nil {
-		if b, err := json.Marshal(req.Metadata); err == nil {
-			dest.MetadataJSON = datatypes.JSON(b)
+		if metaMap, err := providerMetadataToMap(req.Metadata); err == nil {
+			dest.Metadata = metaMap
 		}
 	}
-	dest.OperationsJSON = nil
+	dest.Operations = nil
 	if req.Operations != nil {
-		if b, err := json.Marshal(*req.Operations); err == nil {
-			dest.OperationsJSON = datatypes.JSON(b)
-		}
+		dest.Operations = *req.Operations
 	}
+}
+
+func providerMetadataToMap(meta *providerserver.ProviderMetadata) (map[string]interface{}, error) {
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

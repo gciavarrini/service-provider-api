@@ -3,8 +3,6 @@ package model
 
 import (
 	"time"
-
-	"gorm.io/datatypes"
 )
 
 // HealthStatus represents the health status of a provider
@@ -28,9 +26,9 @@ type Provider struct {
 	ServiceType    string         `gorm:"column:service_type;not null"`
 	SchemaVersion  string         `gorm:"column:schema_version;not null"`
 	Endpoint       string         `gorm:"column:endpoint;not null"`
-	DisplayName    *string        `gorm:"column:display_name"`
-	OperationsJSON datatypes.JSON `gorm:"column:operations"`
-	MetadataJSON   datatypes.JSON `gorm:"column:metadata"`
+	DisplayName *string `gorm:"column:display_name"`
+	Operations  []string `gorm:"column:operations;serializer:json"`
+	Metadata    map[string]interface{} `gorm:"column:metadata;serializer:json"`
 	CreateTime     time.Time      `gorm:"column:create_time;autoCreateTime"`
 	UpdateTime     time.Time      `gorm:"column:update_time;autoUpdateTime"`
 
