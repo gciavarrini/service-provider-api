@@ -89,7 +89,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			req := server.CreateInstanceRequestObject{
 				Body: &server.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB"},
+					Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB", "service_type": "vm"},
 				},
 			}
 
@@ -109,7 +109,7 @@ var _ = Describe("Resource Manager Handler", func() {
 				Params: server.CreateInstanceParams{Id: &specifiedID},
 				Body: &server.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": 1},
+					Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 				},
 			}
 
@@ -127,7 +127,7 @@ var _ = Describe("Resource Manager Handler", func() {
 				Params: server.CreateInstanceParams{Id: &specifiedID},
 				Body: &server.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": 1},
+					Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 				},
 			}
 
@@ -148,7 +148,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			req := server.CreateInstanceRequestObject{
 				Body: &server.ServiceTypeInstance{
 					ProviderName: "non-existent-provider",
-					Spec:         map[string]interface{}{"cpu": 1},
+					Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 				},
 			}
 
@@ -158,6 +158,54 @@ var _ = Describe("Resource Manager Handler", func() {
 			_, ok := resp.(server.CreateInstance404ApplicationProblemPlusJSONResponse)
 			Expect(ok).To(BeTrue())
 		})
+
+		It("returns 400 when spec is missing service_type", func() {
+			req := server.CreateInstanceRequestObject{
+				Body: &server.ServiceTypeInstance{
+					ProviderName: "test-provider",
+					Spec:         map[string]interface{}{"cpu": 2},
+				},
+			}
+
+			resp, err := handler.CreateInstance(ctx, req)
+
+			Expect(err).NotTo(HaveOccurred())
+			_, ok := resp.(server.CreateInstance400ApplicationProblemPlusJSONResponse)
+			Expect(ok).To(BeTrue())
+			Expect(providerCalled).To(BeFalse())
+		})
+
+		It("returns 400 when spec.service_type is not a string", func() {
+			req := server.CreateInstanceRequestObject{
+				Body: &server.ServiceTypeInstance{
+					ProviderName: "test-provider",
+					Spec:         map[string]interface{}{"cpu": 2, "service_type": 42},
+				},
+			}
+
+			resp, err := handler.CreateInstance(ctx, req)
+
+			Expect(err).NotTo(HaveOccurred())
+			_, ok := resp.(server.CreateInstance400ApplicationProblemPlusJSONResponse)
+			Expect(ok).To(BeTrue())
+			Expect(providerCalled).To(BeFalse())
+		})
+
+		It("returns 400 when spec.service_type is an empty string", func() {
+			req := server.CreateInstanceRequestObject{
+				Body: &server.ServiceTypeInstance{
+					ProviderName: "test-provider",
+					Spec:         map[string]interface{}{"cpu": 2, "service_type": ""},
+				},
+			}
+
+			resp, err := handler.CreateInstance(ctx, req)
+
+			Expect(err).NotTo(HaveOccurred())
+			_, ok := resp.(server.CreateInstance400ApplicationProblemPlusJSONResponse)
+			Expect(ok).To(BeTrue())
+			Expect(providerCalled).To(BeFalse())
+		})
 	})
 
 	Describe("GetInstance", func() {
@@ -166,7 +214,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			createReq := server.CreateInstanceRequestObject{
 				Body: &server.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": 2},
+					Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 				},
 			}
 			createResp, _ := handler.CreateInstance(ctx, createReq)
@@ -215,7 +263,7 @@ var _ = Describe("Resource Manager Handler", func() {
 				createReq := server.CreateInstanceRequestObject{
 					Body: &server.ServiceTypeInstance{
 						ProviderName: "test-provider",
-						Spec:         map[string]interface{}{"cpu": i + 1},
+						Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
 					},
 				}
 				_, err := handler.CreateInstance(ctx, createReq)
@@ -230,13 +278,63 @@ var _ = Describe("Resource Manager Handler", func() {
 			Expect(*jsonResp.Instances).To(HaveLen(3))
 		})
 
+		It("filters by service_type", func() {
+			containerProvider := model.Provider{
+				ID:          uuid.New().String(),
+				Name:        "container-provider",
+				ServiceType: "container",
+				Endpoint:    mockProvider.URL,
+			}
+			Expect(db.Create(&containerProvider).Error).NotTo(HaveOccurred())
+
+			// Create vm instances with service_type in spec
+			for i := 0; i < 2; i++ {
+				createReq := server.CreateInstanceRequestObject{
+					Body: &server.ServiceTypeInstance{
+						ProviderName: "test-provider",
+						Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
+					},
+				}
+				_, err := handler.CreateInstance(ctx, createReq)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// Create container instance with service_type in spec
+			createReq := server.CreateInstanceRequestObject{
+				Body: &server.ServiceTypeInstance{
+					ProviderName: "container-provider",
+					Spec:         map[string]interface{}{"image": "nginx", "service_type": "container"},
+				},
+			}
+			_, err := handler.CreateInstance(ctx, createReq)
+			Expect(err).NotTo(HaveOccurred())
+
+			vmType := "vm"
+			resp, err := handler.ListInstances(ctx, server.ListInstancesRequestObject{
+				Params: server.ListInstancesParams{ServiceType: &vmType},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			jsonResp, ok := resp.(server.ListInstances200JSONResponse)
+			Expect(ok).To(BeTrue())
+			Expect(*jsonResp.Instances).To(HaveLen(2))
+
+			containerType := "container"
+			resp, err = handler.ListInstances(ctx, server.ListInstancesRequestObject{
+				Params: server.ListInstancesParams{ServiceType: &containerType},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			jsonResp, ok = resp.(server.ListInstances200JSONResponse)
+			Expect(ok).To(BeTrue())
+			Expect(*jsonResp.Instances).To(HaveLen(1))
+		})
+
 		It("respects max page size and returns next page token", func() {
 			// Create 5 instances
 			for i := 0; i < 5; i++ {
 				createReq := server.CreateInstanceRequestObject{
 					Body: &server.ServiceTypeInstance{
 						ProviderName: "test-provider",
-						Spec:         map[string]interface{}{"cpu": i + 1},
+						Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
 					},
 				}
 				_, err := handler.CreateInstance(ctx, createReq)
@@ -298,7 +396,7 @@ var _ = Describe("Resource Manager Handler", func() {
 			createReq := server.CreateInstanceRequestObject{
 				Body: &server.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": 2},
+					Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 				},
 			}
 			createResp, _ := handler.CreateInstance(ctx, createReq)

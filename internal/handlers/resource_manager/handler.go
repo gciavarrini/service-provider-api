@@ -42,6 +42,7 @@ func (h *Handler) ListInstances(ctx context.Context, request server.ListInstance
 	result, err := h.instanceService.ListInstances(
 		ctx,
 		request.Params.Provider,
+		request.Params.ServiceType,
 		showDeleted,
 		request.Params.MaxPageSize,
 		request.Params.PageToken,

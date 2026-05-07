@@ -119,6 +119,9 @@ type ListInstancesParams struct {
 	// Provider Filter service provider
 	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
 
+	// ServiceType Filter instances by service type
+	ServiceType *string `form:"service_type,omitempty" json:"service_type,omitempty"`
+
 	// ShowDeleted If true, soft-deleted instances are included in the results
 	// alongside active instances. Defaults to false.
 	ShowDeleted *bool `form:"show_deleted,omitempty" json:"show_deleted,omitempty"`
@@ -242,6 +245,14 @@ func (siw *ServerInterfaceWrapper) ListInstances(w http.ResponseWriter, r *http.
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "provider", r.URL.Query(), &params.Provider, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "service_type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "service_type", r.URL.Query(), &params.ServiceType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "service_type", Err: err})
 		return
 	}
 

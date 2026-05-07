@@ -110,6 +110,9 @@ type ListInstancesParams struct {
 	// Provider Filter service provider
 	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
 
+	// ServiceType Filter instances by service type
+	ServiceType *string `form:"service_type,omitempty" json:"service_type,omitempty"`
+
 	// ShowDeleted If true, soft-deleted instances are included in the results
 	// alongside active instances. Defaults to false.
 	ShowDeleted *bool `form:"show_deleted,omitempty" json:"show_deleted,omitempty"`

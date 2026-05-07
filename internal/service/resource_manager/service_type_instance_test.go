@@ -85,7 +85,7 @@ var _ = Describe("InstanceService", func() {
 		It("creates a new instance", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB"},
+				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB", "service_type": "vm"},
 			}
 
 			result, err := instanceService.CreateInstance(ctx, req, nil)
@@ -97,11 +97,25 @@ var _ = Describe("InstanceService", func() {
 			Expect(providerCalled).To(BeTrue())
 		})
 
+		It("sets service_type from spec", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
+			}
+
+			result, err := instanceService.CreateInstance(ctx, req, nil)
+
+			Expect(err).NotTo(HaveOccurred())
+			var dbInstance model.ServiceTypeInstance
+			Expect(db.Where("id = ?", *result.Id).First(&dbInstance).Error).NotTo(HaveOccurred())
+			Expect(dbInstance.ServiceType).To(Equal("vm"))
+		})
+
 		It("creates instance with specified ID", func() {
 			specifiedID := uuid.New().String()
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			result, err := instanceService.CreateInstance(ctx, req, &specifiedID)
@@ -114,7 +128,7 @@ var _ = Describe("InstanceService", func() {
 			specifiedID := uuid.New().String()
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			// First creation should succeed
@@ -134,7 +148,7 @@ var _ = Describe("InstanceService", func() {
 		It("returns not found error for non-existent provider", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "non-existent-provider",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			_, err := instanceService.CreateInstance(ctx, req, nil)
@@ -159,7 +173,7 @@ var _ = Describe("InstanceService", func() {
 
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "not-ready-provider",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			_, err := instanceService.CreateInstance(ctx, req, nil)
@@ -184,7 +198,7 @@ var _ = Describe("InstanceService", func() {
 
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "bad-provider",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			_, err := instanceService.CreateInstance(ctx, req, nil)
@@ -215,7 +229,7 @@ var _ = Describe("InstanceService", func() {
 
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "provider-4xx",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			_, err := instanceService.CreateInstance(ctx, req, nil)
@@ -247,7 +261,7 @@ var _ = Describe("InstanceService", func() {
 
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "provider-5xx",
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			_, err := instanceService.CreateInstance(ctx, req, nil)
@@ -258,6 +272,57 @@ var _ = Describe("InstanceService", func() {
 			errors.As(err, &svcErr)
 			Expect(svcErr.Code).To(Equal(service.ErrCodeProviderError))
 			Expect(svcErr.Message).To(ContainSubstring("provider returned error"))
+		})
+
+		It("returns validation error when spec is missing service_type", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2},
+			}
+
+			_, err := instanceService.CreateInstance(ctx, req, nil)
+
+			Expect(err).To(HaveOccurred())
+			var svcErr *service.ServiceError
+			Expect(err).To(BeAssignableToTypeOf(svcErr))
+			errors.As(err, &svcErr)
+			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
+			Expect(svcErr.Message).To(ContainSubstring("spec.service_type is required"))
+			Expect(providerCalled).To(BeFalse())
+		})
+
+		It("returns validation error when spec.service_type is not a string", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": 42},
+			}
+
+			_, err := instanceService.CreateInstance(ctx, req, nil)
+
+			Expect(err).To(HaveOccurred())
+			var svcErr *service.ServiceError
+			Expect(err).To(BeAssignableToTypeOf(svcErr))
+			errors.As(err, &svcErr)
+			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
+			Expect(svcErr.Message).To(ContainSubstring("spec.service_type is required"))
+			Expect(providerCalled).To(BeFalse())
+		})
+
+		It("returns validation error when spec.service_type is an empty string", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": ""},
+			}
+
+			_, err := instanceService.CreateInstance(ctx, req, nil)
+
+			Expect(err).To(HaveOccurred())
+			var svcErr *service.ServiceError
+			Expect(err).To(BeAssignableToTypeOf(svcErr))
+			errors.As(err, &svcErr)
+			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
+			Expect(svcErr.Message).To(ContainSubstring("must not be empty"))
+			Expect(providerCalled).To(BeFalse())
 		})
 
 		It("returns internal error with instance ID when DB insert fails", func() {
@@ -292,7 +357,7 @@ var _ = Describe("InstanceService", func() {
 
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "provider-db-fail",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 
 			_, err := instanceService.CreateInstance(ctx, req, nil)
@@ -312,7 +377,7 @@ var _ = Describe("InstanceService", func() {
 			// Create an instance first
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
@@ -337,7 +402,7 @@ var _ = Describe("InstanceService", func() {
 
 	Describe("ListInstances", func() {
 		It("returns empty list when no instances exist", func() {
-			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
+			result, err := instanceService.ListInstances(ctx, nil, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).NotTo(BeNil())
@@ -349,13 +414,13 @@ var _ = Describe("InstanceService", func() {
 			for i := 0; i < 3; i++ {
 				req := &resource_manager.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": i + 1},
+					Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
 				}
 				_, err := instanceService.CreateInstance(ctx, req, nil)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
+			result, err := instanceService.ListInstances(ctx, nil, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(3))
@@ -366,14 +431,14 @@ var _ = Describe("InstanceService", func() {
 			for i := 0; i < 5; i++ {
 				req := &resource_manager.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": i + 1},
+					Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
 				}
 				_, err := instanceService.CreateInstance(ctx, req, nil)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			maxPageSize := 2
-			result, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, nil)
+			result, err := instanceService.ListInstances(ctx, nil, nil, false, &maxPageSize, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(2))
@@ -381,7 +446,7 @@ var _ = Describe("InstanceService", func() {
 			Expect(*result.NextPageToken).NotTo(BeEmpty())
 
 			// Get second page using token
-			secondPage, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, result.NextPageToken)
+			secondPage, err := instanceService.ListInstances(ctx, nil, nil, false, &maxPageSize, result.NextPageToken)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*secondPage.Instances).To(HaveLen(2))
@@ -397,10 +462,51 @@ var _ = Describe("InstanceService", func() {
 			}
 
 			// Get third page (last page with 1 item)
-			thirdPage, err := instanceService.ListInstances(ctx, nil, false, &maxPageSize, secondPage.NextPageToken)
+			thirdPage, err := instanceService.ListInstances(ctx, nil, nil, false, &maxPageSize, secondPage.NextPageToken)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*thirdPage.Instances).To(HaveLen(1))
 			Expect(thirdPage.NextPageToken).To(BeNil())
+		})
+
+		It("filters instances by service type", func() {
+			containerProvider := model.Provider{
+				ID:           uuid.New().String(),
+				Name:         "container-provider",
+				ServiceType:  "container",
+				Endpoint:     mockProvider.URL,
+				HealthStatus: model.HealthStatusReady,
+			}
+			Expect(db.Create(&containerProvider).Error).NotTo(HaveOccurred())
+
+			// Create vm instances with service_type in spec
+			for i := 0; i < 2; i++ {
+				req := &resource_manager.ServiceTypeInstance{
+					ProviderName: "test-provider",
+					Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
+				}
+				_, err := instanceService.CreateInstance(ctx, req, nil)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// Create container instances with service_type in spec
+			for i := 0; i < 3; i++ {
+				req := &resource_manager.ServiceTypeInstance{
+					ProviderName: "container-provider",
+					Spec:         map[string]interface{}{"image": "nginx", "service_type": "container"},
+				}
+				_, err := instanceService.CreateInstance(ctx, req, nil)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			vmType := "vm"
+			result, err := instanceService.ListInstances(ctx, nil, &vmType, false, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*result.Instances).To(HaveLen(2))
+
+			containerType := "container"
+			result, err = instanceService.ListInstances(ctx, nil, &containerType, false, nil, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*result.Instances).To(HaveLen(3))
 		})
 
 		It("filters instances by provider name", func() {
@@ -418,7 +524,7 @@ var _ = Describe("InstanceService", func() {
 			for i := 0; i < 2; i++ {
 				req := &resource_manager.ServiceTypeInstance{
 					ProviderName: "test-provider",
-					Spec:         map[string]interface{}{"cpu": i + 1},
+					Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
 				}
 				_, err := instanceService.CreateInstance(ctx, req, nil)
 				Expect(err).NotTo(HaveOccurred())
@@ -427,7 +533,7 @@ var _ = Describe("InstanceService", func() {
 			for i := 0; i < 3; i++ {
 				req := &resource_manager.ServiceTypeInstance{
 					ProviderName: "second-provider",
-					Spec:         map[string]interface{}{"cpu": i + 1},
+					Spec:         map[string]interface{}{"cpu": i + 1, "service_type": "vm"},
 				}
 				_, err := instanceService.CreateInstance(ctx, req, nil)
 				Expect(err).NotTo(HaveOccurred())
@@ -435,7 +541,7 @@ var _ = Describe("InstanceService", func() {
 
 			// Filter by first provider
 			filterProvider := "test-provider"
-			result, err := instanceService.ListInstances(ctx, &filterProvider, false, nil, nil)
+			result, err := instanceService.ListInstances(ctx, &filterProvider, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(2))
@@ -445,7 +551,7 @@ var _ = Describe("InstanceService", func() {
 
 			// Filter by second provider
 			filterProvider = "second-provider"
-			result, err = instanceService.ListInstances(ctx, &filterProvider, false, nil, nil)
+			result, err = instanceService.ListInstances(ctx, &filterProvider, nil, false, nil, nil)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(3))
@@ -460,7 +566,7 @@ var _ = Describe("InstanceService", func() {
 			// Create an instance first
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
@@ -490,7 +596,7 @@ var _ = Describe("InstanceService", func() {
 		It("returns error when provider is missing and deferred is false", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
@@ -509,7 +615,7 @@ var _ = Describe("InstanceService", func() {
 		It("defers deletion without contacting provider", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
@@ -519,12 +625,12 @@ var _ = Describe("InstanceService", func() {
 			Expect(deleteRequested).To(BeFalse())
 
 			// Instance should be marked for deletion, not visible in default list
-			result, err := instanceService.ListInstances(ctx, nil, false, nil, nil)
+			result, err := instanceService.ListInstances(ctx, nil, nil, false, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(BeEmpty())
 
 			// But visible with show_deleted
-			result, err = instanceService.ListInstances(ctx, nil, true, nil, nil)
+			result, err = instanceService.ListInstances(ctx, nil, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(1))
 			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("SCHEDULED"))
@@ -533,7 +639,7 @@ var _ = Describe("InstanceService", func() {
 		It("defers deletion without contacting provider even when provider is missing", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
@@ -546,7 +652,7 @@ var _ = Describe("InstanceService", func() {
 			Expect(deleteRequested).To(BeFalse())
 
 			// Verify marked as SCHEDULED
-			result, err := instanceService.ListInstances(ctx, nil, true, nil, nil)
+			result, err := instanceService.ListInstances(ctx, nil, nil, true, nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(*result.Instances).To(HaveLen(1))
 			Expect(string(*(*result.Instances)[0].DeletionStatus)).To(Equal("SCHEDULED"))
@@ -555,7 +661,7 @@ var _ = Describe("InstanceService", func() {
 		It("resets retry count when deleting a FAILED instance with deferred=true", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 
@@ -581,7 +687,7 @@ var _ = Describe("InstanceService", func() {
 		It("returns 204 when deleting an already-pending instance and SP succeeds", func() {
 			req := &resource_manager.ServiceTypeInstance{
 				ProviderName: "test-provider",
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			}
 			created, _ := instanceService.CreateInstance(ctx, req, nil)
 

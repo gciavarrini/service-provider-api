@@ -245,6 +245,22 @@ func NewListInstancesRequest(server string, params *ListInstancesParams) (*http.
 
 		}
 
+		if params.ServiceType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "service_type", *params.ServiceType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.ShowDeleted != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "show_deleted", *params.ShowDeleted, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {

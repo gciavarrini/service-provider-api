@@ -49,6 +49,11 @@ paths:
           description: Filter service provider
           schema:
             type: string
+        - name: service_type
+          in: query
+          description: Filter instances by service type
+          schema:
+            type: string
         - name: show_deleted
           in: query
           description: |

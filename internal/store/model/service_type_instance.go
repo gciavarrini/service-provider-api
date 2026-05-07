@@ -7,6 +7,7 @@ import (
 type ServiceTypeInstance struct {
 	ID            string         `gorm:"primaryKey;type:varchar(63)"`
 	ProviderName  string         `gorm:"column:provider_name;not null"`
+	ServiceType   string         `gorm:"column:service_type;not null;default:'';index"`
 	Status        string         `gorm:"column:status;not null"`
 	StatusMessage string         `gorm:"column:status_message"`
 	InstanceName  string         `gorm:"column:instance_name;not null"`

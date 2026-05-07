@@ -83,7 +83,7 @@ var _ = Describe("Service Instance API", func() {
 			params := &resource_manager.CreateInstanceParams{Id: &instID}
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB"},
+				Spec:         map[string]interface{}{"cpu": 2, "memory": "4GB", "service_type": "vm"},
 			})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -96,7 +96,7 @@ var _ = Describe("Service Instance API", func() {
 		It("creates an instance with server-generated ID", func() {
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -110,7 +110,7 @@ var _ = Describe("Service Instance API", func() {
 			params := &resource_manager.CreateInstanceParams{Id: &instID}
 			body := resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			}
 
 			resp1, err := rmApiClient.CreateInstanceWithResponse(ctx, params, body)
@@ -125,7 +125,7 @@ var _ = Describe("Service Instance API", func() {
 		It("returns 404 for non-existent provider", func() {
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
 				ProviderName: "non-existent-provider-" + uuid.New().String(),
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -150,7 +150,7 @@ var _ = Describe("Service Instance API", func() {
 
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, nil, resource_manager.ServiceTypeInstance{
 				ProviderName: unhealthyName,
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			})
 
 			Expect(err).NotTo(HaveOccurred())
@@ -164,7 +164,7 @@ var _ = Describe("Service Instance API", func() {
 			params := &resource_manager.CreateInstanceParams{Id: &instID}
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
@@ -193,7 +193,7 @@ var _ = Describe("Service Instance API", func() {
 			params := &resource_manager.CreateInstanceParams{Id: &instID}
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 1},
+				Spec:         map[string]interface{}{"cpu": 1, "service_type": "vm"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
@@ -270,7 +270,7 @@ var _ = Describe("Service Instance API", func() {
 			params := &resource_manager.CreateInstanceParams{Id: &instID}
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))
@@ -302,7 +302,7 @@ var _ = Describe("Service Instance API", func() {
 			params := &resource_manager.CreateInstanceParams{Id: &instID}
 			createResp, err := rmApiClient.CreateInstanceWithResponse(ctx, params, resource_manager.ServiceTypeInstance{
 				ProviderName: providerName,
-				Spec:         map[string]interface{}{"cpu": 2},
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": "vm"},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(createResp.StatusCode()).To(Equal(http.StatusCreated))

@@ -24,6 +24,12 @@ func newServiceTypeInstance(providerName, instanceName string, spec map[string]a
 	}
 }
 
+func newServiceTypeInstanceWithType(providerName, instanceName, serviceType string, spec map[string]any) model.ServiceTypeInstance {
+	inst := newServiceTypeInstance(providerName, instanceName, spec)
+	inst.ServiceType = serviceType
+	return inst
+}
+
 var kubevirtProvider = "kubevirt-sp"
 
 var _ = Describe("ServiceTypeInstance Store", func() {
@@ -136,6 +142,27 @@ var _ = Describe("ServiceTypeInstance Store", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Instances).To(HaveLen(2))
 			Expect(result.NextPageToken).NotTo(BeNil())
+		})
+
+		It("filters by service type", func() {
+			vmType := "vm"
+			containerType := "container"
+			addInstanceToStore(newServiceTypeInstanceWithType(kubevirtProvider, "vm-inst", vmType, map[string]any{}))
+			addInstanceToStore(newServiceTypeInstanceWithType(kubevirtProvider, "container-inst", containerType, map[string]any{}))
+
+			result, err := s.List(ctx, &rmstore.ServiceTypeInstanceListOptions{
+				ServiceType: &vmType,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Instances).To(HaveLen(1))
+			Expect(result.Instances[0].ServiceType).To(Equal("vm"))
+
+			result, err = s.List(ctx, &rmstore.ServiceTypeInstanceListOptions{
+				ServiceType: &containerType,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Instances).To(HaveLen(1))
+			Expect(result.Instances[0].ServiceType).To(Equal("container"))
 		})
 
 		It("returns next page using page token", func() {
