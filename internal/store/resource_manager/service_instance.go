@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
@@ -94,7 +95,7 @@ func (s *ServiceTypeInstanceStore) List(ctx context.Context, opts *ServiceTypeIn
 		query = query.Where("provider_name = ?", *opts.ProviderName)
 	}
 
-	if opts != nil && opts.ServiceType != nil && *opts.ServiceType != "" {
+	if opts != nil && opts.ServiceType != nil && strings.TrimSpace(*opts.ServiceType) != "" {
 		query = query.Where("service_type = ?", *opts.ServiceType)
 	}
 

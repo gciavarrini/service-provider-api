@@ -325,6 +325,23 @@ var _ = Describe("InstanceService", func() {
 			Expect(providerCalled).To(BeFalse())
 		})
 
+		It("returns validation error when spec.service_type is whitespace only", func() {
+			req := &resource_manager.ServiceTypeInstance{
+				ProviderName: "test-provider",
+				Spec:         map[string]interface{}{"cpu": 2, "service_type": " "},
+			}
+
+			_, err := instanceService.CreateInstance(ctx, req, nil)
+
+			Expect(err).To(HaveOccurred())
+			var svcErr *service.ServiceError
+			Expect(err).To(BeAssignableToTypeOf(svcErr))
+			errors.As(err, &svcErr)
+			Expect(svcErr.Code).To(Equal(service.ErrCodeValidation))
+			Expect(svcErr.Message).To(ContainSubstring("must not be empty"))
+			Expect(providerCalled).To(BeFalse())
+		})
+
 		It("returns internal error with instance ID when DB insert fails", func() {
 			var instanceID string
 			var providerCallCount int

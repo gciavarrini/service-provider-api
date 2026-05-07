@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dcm-project/service-provider-manager/api/v1alpha1/resource_manager"
@@ -77,7 +78,7 @@ func (s *InstanceService) CreateInstance(ctx context.Context, request *resource_
 	if !ok {
 		return nil, service.NewValidationError("spec.service_type is required and must be a string")
 	}
-	if serviceType == "" {
+	if strings.TrimSpace(serviceType) == "" {
 		return nil, service.NewValidationError("spec.service_type must not be empty")
 	}
 
